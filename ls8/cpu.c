@@ -1,41 +1,107 @@
 #include "cpu.h"
+#include "stdlib.h"
+#include "stdio.h"
+#include "string.h"
 
 #define DATA_LEN 6
 
+// /**
+// Helper function to write a value to the specified index in RAM
+void cpu_ram_write(struct cpu *cpu, unsigned char val, unsigned char index)
+{
+  cpu->ram[index] = val;
+}
+
+/**
+ * Helper function to read a value from the specified index in RAM
+ * Returns the read value
+ */
 unsigned char cpu_ram_read(struct cpu *cpu, unsigned char index)
 {
   return cpu->ram[index];
 }
 
-unsigned char cpu_ram_write(struct cpu *cpu, unsigned char index, unsigned char value)
-{
-  return cpu->ram[index] = value;
-}
-
 /**
  * Load the binary bytes from a .ls8 source file into a RAM array
  */
-void cpu_load(struct cpu *cpu)
+
+void cpu_load(char *filename, struct cpu *cpu)
 {
-  char data[DATA_LEN] = {
-      // From print8.ls8
-      0b10000010, // LDI R0,8
-      0b00000000,
-      0b00001000,
-      0b01000111, // PRN R0
-      0b00000000,
-      0b00000001 // HLT
-  };
+
+  FILE *fp;
+  char line[1024];
 
   int address = 0;
 
-  for (int i = 0; i < DATA_LEN; i++)
+  // THIS WAS HARDCODED BEFORE
+  // for (int i = 0; i < DATA_LEN; i++) {
+  //   cpu->ram[address++] = data[i];
+  // }
+
+  // Open the source file
+  if ((fp = fopen(filename, "r")) == NULL)
   {
-    cpu->ram[address++] = data[i];
+    fprintf(stderr, "Cannot open file %s\n", filename);
+    exit(2);
   }
 
-  // TODO: Replace this with something less hard-coded
+  // Read all the lines and store them in RAM
+  while (fgets(line, sizeof(line), fp) != NULL)
+  {
+
+    // Convert the string to a number
+    char *endchar;
+    unsigned char byte = strtoul(line, &endchar, 2);
+
+    // Ignores lines from which no numbers were read
+    if (endchar == line)
+    {
+      continue;
+    }
+
+    // Store in RAM
+    cpu_ram_write(cpu, byte, address++);
+  }
 }
+
+// void cpu_load(char *filename, struct cpu *cpu)
+// {
+//   // char data[DATA_LEN] = {
+//   //     // From print8.ls8
+//   //     0b10000010, // LDI R0,8
+//   //     0b00000000,
+//   //     0b00001000,
+//   //     0b01000111, // PRN R0
+//   //     0b00000000,
+//   //     0b00000001 // HLT
+//   // };
+//   // for (int i = 0; i < DATA_LEN; i++)
+//   // {
+//   //   cpu->ram[address++] = data[i];
+//   // }
+//   // TODO: Replace this with something less hard-coded
+//   FILE *fp;
+//   char line[1024];
+//   int address = 0;
+
+//   //Open source file
+//   fp = fopen(filename, "r");
+//   if (fp == NULL)
+//   {
+//     fprintf(stderr, "cannot open file %s\n", filename);
+//     exit(2);
+//   }
+//   while (fgets(line, 128, fp) != NULL)
+//   {
+//     char *endchar;
+//     unsigned char byte = strtol(line, &endchar, 2);
+//     if (endchar == line)
+//     {
+//       continue;
+//     }
+//     cpu_ram_write(cpu, byte, address++);
+//   }
+// }
 
 /**
  * ALU
@@ -61,49 +127,70 @@ void cpu_run(struct cpu *cpu)
 
   while (running)
   {
+    unsigned char operandA = 0;
+    unsigned char operandB = 0;
+
     // TODO
     // 1. Get the value of the current instruction (in address PC).
+    unsigned char IR = cpu_ram_read(cpu, cpu->pc);
     // 2. Figure out how many operands this next instruction requires
+    unsigned int num_operands = IR >> 6;
     // 3. Get the appropriate value(s) of the operands following this instruction
+    if (num_operands == 2)
+    {
+      operandA = cpu_ram_read(cpu, (cpu->pc + 1) & 0xff);
+      operandB = cpu_ram_read(cpu, (cpu->pc + 2) & 0xff);
+    }
+    else if (num_operands == 1)
+    {
+      operandA = cpu_ram_read(cpu, (cpu->pc + 1) & 0xff);
+    }
+    // else
+    // {
+    //   reutrn(1);
+    // }
     // 4. switch() over it to decide on a course of action.
+    int instruction_set_pc = (IR >> 4) & 1;
+
     // 5. Do whatever the instruction should do according to the spec.
+
     // 6. Move the PC to the next instruction.
 
-    int running = 1;
-    while (running)
+    switch (IR)
     {
-      unsigned char IR = cpu_ram_read(cpu, cpu->pc); // instruction address in program counter
-      unsigned char operandA = cpu_ram_read(cpu, cpu->pc + 1);
-      unsigned char operandB = cpu_ram_read(cpu, cpu->pc + 2);
-      switch (IR)
-      {
-      default:
-        break;
+    case HLT:
+      running = 0;
+      break;
 
-      // 5. Do whatever the instruction should do according to the spec.
-      case HLT:
-        running = 0;
-        exit(1);
-        break;
+    case LDI:
+      cpu->reg[operandA] = operandB;
+      break;
 
-      case LDI:
-        cpu->reg[operandA] = operandB;
-        break;
+    case PRN:
+      printf("%d\n", cpu->reg[operandA]);
+      break;
 
-      case PRN:
-        printf("%d\n", cpu->reg[operandA]);
-        break;
-      }
+    default:
+      fprintf(stderr, "PC %02x: unknown instruction %02x\n", cpu->pc, IR);
+      exit(3);
+    }
+    if (!instruction_set_pc)
+    {
+      cpu->pc += num_operands + 1;
     }
   }
 }
 
-/**
- * Initialize a CPU struct
- */
+// *Initialize a CPU struct
+// * /
 void cpu_init(struct cpu *cpu)
 {
   // TODO: Initialize the PC and other special registers
-  memset(cpu->ram, 0, sizeof cpu->ram);
-  memset(cpu->reg, 0, sizeof cpu->reg);
+  // initialize PC
+  cpu->pc = 0;
+  cpu->FL = 0;
+  memset(cpu->ram, 0, sizeof(cpu->ram));
+  memset(cpu->reg, 0, sizeof(cpu->reg));
+
+  //Init Stack Pointer
 }

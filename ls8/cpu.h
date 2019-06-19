@@ -1,3 +1,5 @@
+
+
 #ifndef _CPU_H_
 #define _CPU_H_
 
@@ -5,6 +7,8 @@
 struct cpu
 {
   // TODO
+  // FLAG
+  unsigned char FL;
   // PC
   unsigned char pc;
   // registers (array)
@@ -30,7 +34,7 @@ enum alu_op
 #define HLT 0b00000001
 // Function declarations
 
-extern void cpu_load(struct cpu *cpu);
+extern void cpu_load(char *filename, struct cpu *cpu);
 extern void cpu_init(struct cpu *cpu);
 extern void cpu_run(struct cpu *cpu);
 
