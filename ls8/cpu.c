@@ -4,7 +4,25 @@
 #include "string.h"
 
 #define DATA_LEN 6
+/////////////////////////////////////////////////////
+//TRACE WHAT IS HAPPENING AT CPU LEVEL
+void trace(struct cpu *cpu)
+{
+  printf("%02X | ", cpu->pc);
 
+  printf("%02X %02X %02X |",
+         cpu_ram_read(cpu, cpu->pc),
+         cpu_ram_read(cpu, cpu->pc + 1),
+         cpu_ram_read(cpu, cpu->pc + 2));
+
+  for (int i = 0; i < 8; i++)
+  {
+    printf(" %02X", cpu->reg[i]);
+  }
+
+  printf("\n");
+}
+/////////////////////////////////////////////////////
 // /**
 // Helper function to write a value to the specified index in RAM
 void cpu_ram_write(struct cpu *cpu, unsigned char val, unsigned char index)
@@ -112,6 +130,7 @@ void alu(struct cpu *cpu, enum alu_op op, unsigned char regA, unsigned char regB
   {
   case ALU_MUL:
     // TODO
+    cpu->reg[regA] = cpu->reg[regA] * cpu->reg[regB];
     break;
 
     // TODO: implement more ALU ops
@@ -168,6 +187,20 @@ void cpu_run(struct cpu *cpu)
 
     case PRN:
       printf("%d\n", cpu->reg[operandA]);
+      break;
+
+    case MUL:
+      alu(cpu, ALU_MUL, operandA, operandB);
+      break;
+
+    case PUSH:
+      cpu->reg[SP]--;
+      cpu->ram[cpu->reg[SP]] = cpu->reg[operandA];
+      break;
+
+    case POP:
+      cpu->reg[operandA] = cpu->ram[cpu->reg[SP]];
+      cpu->reg[SP]++;
       break;
 
     default:

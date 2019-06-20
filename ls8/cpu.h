@@ -32,6 +32,11 @@ enum alu_op
 #define LDI 0b10000010
 #define PRN 0b01000111
 #define HLT 0b00000001
+#define MUL 0b10100010
+// Stack Pointer acts similar to local execution context in the call stack in JS.  It brings us back to the top (bottom in js call stack) of the stack after executed
+#define SP 7
+#define PUSH 0b01000101
+#define POP 0b01000110
 // Function declarations
 
 extern void cpu_load(char *filename, struct cpu *cpu);
